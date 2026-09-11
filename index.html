@@ -1236,7 +1236,7 @@ function resolveTypedVendor(typed){
   if(byCode) return { code: byCode[0], name: byCode[1] };
   var byName = master.vendors.filter(function(v){ return v[1].toLowerCase() === tl; });
   if(byName.length === 1) return { code: byName[0][0], name: byName[0][1] };
-  if(/^H\d+P[SC]\d+$/i.test(t)) return { code: t.toUpperCase(), name: t.toUpperCase() + ' (ไม่อยู่ในฐานข้อมูล)' };
+  if(/^[A-Z0-9]+PS\d+$/i.test(t)) return { code: t.toUpperCase(), name: t.toUpperCase() + ' (ไม่อยู่ในฐานข้อมูล)' };
   return null;
 }
 
@@ -1676,12 +1676,13 @@ document.getElementById('btnImportMaster').addEventListener('click', function(){
   }
   if(pendingImport.vendors){
     parsed.vendors = parseCodeNameFile(pendingImport.vendors);
-    if(!mostlyMatch(parsed.vendors, /^H\d+PS/i)){ toast('ไฟล์ผู้จำหน่ายไม่ถูกรูปแบบ (รหัสควรขึ้นต้น H0001PS) — ตรวจว่าเลือกไฟล์ Suppliers...TXT'); return; }
+    // Codes are <5 chars>PS<digits>: both H0001PS640001 and 00000PS650001 occur.
+    if(!mostlyMatch(parsed.vendors, /^[A-Z0-9]+PS\d+$/i)){ toast('ไฟล์ผู้จำหน่ายไม่ถูกรูปแบบ (รหัสควรมี PS เช่น H0001PS640001) — ตรวจว่าเลือกไฟล์ Suppliers...TXT'); return; }
     counts.push(parsed.vendors.length + ' ผู้จำหน่าย');
   }
   if(pendingImport.customers){
     parsed.customers = parseCodeNameFile(pendingImport.customers);
-    if(!mostlyMatch(parsed.customers, /^H\d+PC/i)){ toast('ไฟล์ลูกค้าไม่ถูกรูปแบบ (รหัสควรขึ้นต้น H0001PC) — ตรวจว่าเลือกไฟล์ Customer...TXT'); return; }
+    if(!mostlyMatch(parsed.customers, /^[A-Z0-9]+PC\d+$/i)){ toast('ไฟล์ลูกค้าไม่ถูกรูปแบบ (รหัสควรมี PC เช่น H0001PC640001) — ตรวจว่าเลือกไฟล์ Customer...TXT'); return; }
     counts.push(parsed.customers.length + ' ลูกค้า');
   }
   var data = loadJSON(LS_MASTER, null) || JSON.parse(JSON.stringify(window.DEFAULT_MASTER));
