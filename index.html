@@ -845,6 +845,10 @@ function wireAutocomplete(inputEl, resultsEl, getRows, onPick){
     lastMatches = [];
     if(!q){ return; }
     var rows = getRows();
+    if(!rows.length){
+      resultsEl.innerHTML = '<div class="ac-item" style="color:var(--warn-text);cursor:default;">ยังไม่มีฐานข้อมูลในเครื่องนี้ — ไปที่แท็บ "ข้อมูลหลัก" แล้วนำเข้าไฟล์ Products / Suppliers / Customer ก่อน</div>';
+      return;
+    }
     var matches = [];
     for(var i=0;i<rows.length && matches.length<20;i++){
       var r = rows[i];
