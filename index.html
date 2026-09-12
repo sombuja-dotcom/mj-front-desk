@@ -566,6 +566,19 @@ tr.not-member td{background:var(--warn-bg);}
       <button id="btnImportMaster" class="btn btn-accent">นำเข้าข้อมูลใหม่</button>
       <button id="btnResetMaster" class="btn btn-danger-ghost">รีเซ็ตเป็นข้อมูลเริ่มต้น</button>
     </div>
+
+    <div class="panel-head" style="margin-top:14px;"><h2>สำรอง / กู้คืนข้อมูล</h2></div>
+    <div class="hint-text">ข้อมูลทั้งหมดอยู่ในมือถือเครื่องนี้เท่านั้น สำรองเป็นไฟล์เดียวเก็บไว้เป็นระยะ (แนะนำหลังนับสต็อกทุกครั้ง) ไฟล์นี้ใช้กู้คืนได้ทั้งเครื่องเดิมและย้ายไปเครื่องใหม่</div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+      <div id="backupSummary" class="hint-text"></div>
+      <button id="btnBackupAll" class="btn btn-accent btn-big">💾 สำรองข้อมูลทั้งหมดเป็นไฟล์</button>
+      <div class="import-row">
+        <div class="ir-title">กู้คืนจากไฟล์สำรอง (.json)</div>
+        <input type="file" id="fileRestore" accept=".json,application/json">
+        <div class="file-picked" id="fileRestoreStatus"></div>
+        <button id="btnRestoreAll" class="btn btn-danger-ghost" hidden>กู้คืน — เขียนทับข้อมูลในเครื่องนี้</button>
+      </div>
+    </div>
   </section>
 
 </main>
@@ -2436,8 +2449,84 @@ document.getElementById('btnResetMaster').addEventListener('click', function(){
 });
 
 /* ---------------------------------------------------------------------
+   BACKUP / RESTORE — one JSON file with every localStorage key the app
+   owns, so a phone swap or a cleared browser is recoverable.
+--------------------------------------------------------------------- */
+var LS_BACKUP_AT = 'srs_backup_at';
+var BACKUP_KEYS = [LS_MASTER, LS_RECEIVING, LS_SALES, LS_CART, LS_GROUPS, LS_COUNTS];
+var pendingRestore = null;
+
+function backupSummaryText(){
+  var parts = [
+    groups.list.length + ' กลุ่ม', counts.sessions.length + ' รอบนับ',
+    receiving.headers.length + ' บิลรับค้าง', sales.records.length + ' รายการขาย',
+    master.barcodeMap.size.toLocaleString('th-TH') + ' บาร์โค้ด'
+  ];
+  var at = null;
+  try { at = localStorage.getItem(LS_BACKUP_AT); } catch(e){}
+  return 'ในเครื่องตอนนี้: ' + parts.join(' · ') + '<br>สำรองล่าสุด: ' + (at ? new Date(+at).toLocaleString('th-TH') + ' (' + fmtAgo(+at) + ')' : '<span style="color:var(--warn-text);font-weight:600;">ยังไม่เคยสำรอง</span>');
+}
+function renderBackupSummary(){ document.getElementById('backupSummary').innerHTML = backupSummaryText(); }
+
+document.getElementById('btnBackupAll').addEventListener('click', function(){
+  var data = {};
+  BACKUP_KEYS.forEach(function(k){
+    var v = null;
+    try { v = localStorage.getItem(k); } catch(e){}
+    if(v != null){ try { data[k] = JSON.parse(v); } catch(e){} }
+  });
+  if(!data[LS_MASTER] && master.barcodeMap.size){
+    // artifact build: master lives in the page, not localStorage — include it so a restore elsewhere is complete
+    data[LS_MASTER] = window.DEFAULT_MASTER;
+  }
+  var payload = { app: 'mj-front-desk', version: 1, exportedAt: Date.now(), data: data };
+  var d = new Date();
+  saveFile('frontdesk_backup_' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '_' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0') + '.json', JSON.stringify(payload));
+  try { localStorage.setItem(LS_BACKUP_AT, String(Date.now())); } catch(e){}
+  renderBackupSummary();
+});
+
+document.getElementById('fileRestore').addEventListener('change', function(e){
+  var file = e.target.files && e.target.files[0];
+  var statusEl = document.getElementById('fileRestoreStatus');
+  var btn = document.getElementById('btnRestoreAll');
+  pendingRestore = null; btn.hidden = true;
+  if(!file){ statusEl.textContent = ''; return; }
+  file.text().then(function(text){
+    var p = JSON.parse(text);
+    if(!p || p.app !== 'mj-front-desk' || !p.data) throw new Error('not a backup');
+    pendingRestore = p;
+    var d = p.data;
+    var g = (d[LS_GROUPS] && d[LS_GROUPS].list || []).length;
+    var s = (d[LS_COUNTS] && d[LS_COUNTS].sessions || []).length;
+    var r = (d[LS_RECEIVING] && d[LS_RECEIVING].headers || []).length;
+    var sl = (d[LS_SALES] && d[LS_SALES].records || []).length;
+    var b = (d[LS_MASTER] && d[LS_MASTER].barcodes || []).length;
+    statusEl.textContent = 'ไฟล์สำรองเมื่อ ' + new Date(p.exportedAt).toLocaleString('th-TH') + ' — ' + g + ' กลุ่ม · ' + s + ' รอบนับ · ' + r + ' บิลรับ · ' + sl + ' รายการขาย · ' + b.toLocaleString('th-TH') + ' บาร์โค้ด';
+    btn.hidden = false;
+  }).catch(function(){
+    statusEl.textContent = 'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอปนี้';
+  });
+});
+document.getElementById('btnRestoreAll').addEventListener('click', function(){
+  if(!pendingRestore) return;
+  showConfirm('กู้คืนจะเขียนทับกลุ่ม ประวัติการนับ บิลค้าง ยอดขาย และฐานข้อมูลในเครื่องนี้ทั้งหมดด้วยข้อมูลจากไฟล์ ยืนยัน?', function(){
+    var d = pendingRestore.data;
+    BACKUP_KEYS.forEach(function(k){
+      try {
+        if(d[k] != null) localStorage.setItem(k, JSON.stringify(d[k]));
+        else localStorage.removeItem(k);
+      } catch(e){}
+    });
+    try { localStorage.setItem(LS_BACKUP_AT, String(pendingRestore.exportedAt || Date.now())); } catch(e){}
+    location.reload();
+  });
+});
+
+/* ---------------------------------------------------------------------
    Init
 --------------------------------------------------------------------- */
+renderBackupSummary();
 initCapabilities();
 renderMasterStats();
 renderReceiving();
