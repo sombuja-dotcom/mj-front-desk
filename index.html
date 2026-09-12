@@ -293,6 +293,20 @@ table.item-table input{padding:6px 7px;font-size:13px;text-align:right;}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
 .hint-text{font-size:12px;color:var(--text-dim);}
+
+/* ---- Stock count ---- */
+.sub-head{font-size:13px;color:var(--text-dim);font-weight:600;letter-spacing:.02em;text-transform:uppercase;margin-top:6px;}
+.banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:10px 12px;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.banner-warn{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text);}
+.group-card .gc-meta{color:var(--text-dim);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;}
+.group-card .gc-due{color:var(--warn-text);font-weight:600;}
+tr.counted td{background:var(--success-soft);}
+tr.not-member td{background:var(--warn-bg);}
+.var-short{color:var(--danger);font-weight:700;}
+.var-over{color:var(--warn-text);font-weight:700;}
+.var-ok{color:var(--success);}
+.toggle-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-dim);}
+.toggle-row input{width:auto;}
 [hidden]{display:none!important;}
 </style>
 
@@ -421,6 +435,104 @@ table.item-table input{padding:6px 7px;font-size:13px;text-align:right;}
     </div>
   </section>
 
+  <!-- ============ STOCK COUNT VIEW ============ -->
+  <section id="view-stock" class="view">
+
+    <div id="stk-groups-panel" style="display:flex;flex-direction:column;gap:12px;">
+      <div id="stk-nostock-banner" class="banner banner-warn" hidden>ฐานข้อมูลในเครื่องยังไม่มียอดสต็อก — ไปแท็บ "ข้อมูลหลัก" นำเข้าไฟล์ Products ใหม่อีกครั้ง</div>
+      <div id="stk-active-banner" class="banner" hidden></div>
+      <div class="panel-head">
+        <h2>นับสต็อกตามกลุ่ม</h2>
+        <button id="btnNewGroup" class="btn btn-accent">+ กลุ่มใหม่</button>
+      </div>
+      <div id="stk-next-hint" class="hint-text"></div>
+      <input id="groupSearch" placeholder="ค้นหากลุ่ม...">
+
+      <div class="sub-head">กลุ่มของร้าน (ตามชั้นวาง)</div>
+      <div id="stk-user-groups" class="stack"></div>
+
+      <div class="sub-head">กลุ่มแนะนำตามยี่ห้อ / ชื่อสินค้า</div>
+      <div class="hint-text">จัดให้อัตโนมัติจากคำแรกของชื่อสินค้า สินค้าที่ย้ายเข้ากลุ่มของร้านแล้วจะไม่ซ้ำที่นี่</div>
+      <div id="stk-auto-groups" class="stack"></div>
+
+      <div class="sub-head" style="margin-top:12px;">ประวัติการนับ</div>
+      <div id="stk-history" class="stack"></div>
+      <div id="stk-frequent" class="card" hidden></div>
+    </div>
+
+    <div id="stk-count-panel" hidden style="display:flex;flex-direction:column;gap:12px;">
+      <div class="panel-head">
+        <button id="btnStkBack" class="btn-icon" aria-label="กลับ">←</button>
+        <div class="active-header-info">
+          <div class="ah-vendor" id="stk-title"></div>
+          <div class="ah-meta" id="stk-meta"></div>
+        </div>
+        <span></span>
+      </div>
+      <div class="scan-controls">
+        <button id="btnOpenScannerStk" class="btn btn-accent btn-big">📷 สแกนบาร์โค้ด</button>
+        <div class="manual-row">
+          <input id="manualBarcodeInputStk" placeholder="หรือพิมพ์บาร์โค้ด/รหัสสินค้า แล้วกด Enter">
+          <button id="btnManualAddStk" class="btn">ไป</button>
+        </div>
+        <input id="productNameSearchStk" placeholder="หรือค้นหาชื่อสินค้า...">
+        <div id="productNameResultsStk" class="autocomplete-results"></div>
+      </div>
+      <div id="stkConfirmPanel" class="confirm-panel" hidden></div>
+      <label class="toggle-row" id="stkShowSysRow"><input type="checkbox" id="stkShowSys"> แสดงยอดในระบบระหว่างนับ (ปกติซ่อนไว้เพื่อให้นับตามจริง)</label>
+      <input id="stkRowFilter" placeholder="กรองรายการในกลุ่ม...">
+      <div style="overflow-x:auto;">
+        <table class="item-table">
+          <thead><tr><th></th><th>สินค้า</th><th class="num stk-sys-col">ระบบ</th><th class="num">นับได้</th><th></th></tr></thead>
+          <tbody id="stk-rows"></tbody>
+        </table>
+      </div>
+      <div id="stk-empty" class="empty-state">กลุ่มนี้ยังไม่มีสินค้า — สแกนหรือค้นหาชื่อสินค้าบนชั้นนี้เพื่อเพิ่มเข้ากลุ่ม</div>
+      <div class="table-total" id="stk-progress"></div>
+      <div class="btn-row" id="stk-count-actions">
+        <button id="btnStkZeroRest" class="btn">ตั้งที่ยังไม่นับ = 0</button>
+        <button id="btnStkFinish" class="btn btn-accent">✔ เสร็จสิ้นการนับ</button>
+      </div>
+      <button id="btnStkDeleteGroup" class="btn btn-danger-ghost" hidden>ลบกลุ่มนี้</button>
+    </div>
+
+    <div id="stk-result-panel" hidden style="display:flex;flex-direction:column;gap:12px;">
+      <div class="panel-head">
+        <button id="btnStkResultBack" class="btn-icon" aria-label="กลับ">←</button>
+        <div class="active-header-info">
+          <div class="ah-vendor" id="stk-result-title"></div>
+          <div class="ah-meta" id="stk-result-meta"></div>
+        </div>
+        <span></span>
+      </div>
+      <div class="stat-grid" id="stk-result-tiles"></div>
+      <label class="toggle-row"><input type="checkbox" id="stkOnlyDiff" checked> เฉพาะรายการที่ไม่ตรง</label>
+      <div style="overflow-x:auto;">
+        <table class="item-table">
+          <thead><tr><th>สินค้า</th><th class="num">ระบบ</th><th class="num">นับได้</th><th class="num">ผลต่าง</th><th class="num">มูลค่า</th></tr></thead>
+          <tbody id="stk-result-rows"></tbody>
+        </table>
+      </div>
+      <div class="export-box">
+        <div class="export-summary"><b>รายงานผลต่าง</b> — สำหรับดู/ส่งให้ตรวจสอบ</div>
+        <div class="btn-row">
+          <button id="btnStkCopyReport" class="btn btn-accent">📋 คัดลอก</button>
+          <button id="btnStkViewReport" class="btn">ดูข้อความ</button>
+          <button id="btnStkSaveReport" class="btn js-save-file-btn" hidden>💾 บันทึกไฟล์</button>
+        </div>
+      </div>
+      <div class="export-box">
+        <div class="export-summary"><b>ไฟล์ปรับสต็อก ProMaxx</b> — รูปแบบเดียวกับไฟล์ที่นำเข้าเมนูปรับสต็อก มีเฉพาะรายการที่นับแล้วในรอบนี้ (รายการที่ไม่ได้นับจะไม่อยู่ในไฟล์)</div>
+        <div class="btn-row">
+          <button id="btnStkCopyAdjust" class="btn btn-accent">📋 คัดลอก</button>
+          <button id="btnStkViewAdjust" class="btn">ดูข้อความ</button>
+          <button id="btnStkSaveAdjust" class="btn js-save-file-btn" hidden>💾 บันทึกไฟล์</button>
+        </div>
+      </div>
+      <button id="btnStkDeleteSession" class="btn btn-danger-ghost">ลบผลนับรอบนี้</button>
+    </div>
+  </section>
+
   <!-- ============ MASTER DATA VIEW ============ -->
   <section id="view-data" class="view">
     <div class="panel-head"><h2>ฐานข้อมูลหลัก</h2></div>
@@ -467,6 +579,10 @@ table.item-table input{padding:6px 7px;font-size:13px;text-align:right;}
     <svg viewBox="0 0 24 24"><path d="M4 4h2l2.4 12.4a2 2 0 0 0 2 1.6h7.2a2 2 0 0 0 2-1.6L21 8H7"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>
     ขายฉุกเฉิน
   </button>
+  <button class="navbtn" data-view="stock">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+    นับสต็อก
+  </button>
   <button class="navbtn" data-view="data">
     <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="2.6"/><path d="M5 5v14c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V5"/><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
     ข้อมูลหลัก
@@ -487,6 +603,21 @@ table.item-table input{padding:6px 7px;font-size:13px;text-align:right;}
     <div class="btn-row">
       <button id="btnCancelHeader" class="btn">ยกเลิก</button>
       <button id="btnSaveHeader" class="btn btn-accent">สร้างบิล</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group name sheet -->
+<div id="groupFormOverlay" class="overlay" hidden>
+  <div class="sheet">
+    <h3 id="groupFormTitle">กลุ่มใหม่</h3>
+    <label>ชื่อกลุ่ม (เช่น ชั้น A1 แชมพู, ตู้เย็น 2, หน้าเคาน์เตอร์)
+      <input id="groupNameInput" placeholder="ตั้งชื่อตามตำแหน่งจริงในร้าน">
+    </label>
+    <div class="hint-text">สร้างแล้วสแกนสินค้าบนชั้นนั้นทีละชิ้นเพื่อเพิ่มเข้ากลุ่ม ทำครั้งเดียว ครั้งต่อไปกด "นับ" ได้เลย</div>
+    <div class="btn-row">
+      <button id="btnCancelGroup" class="btn">ยกเลิก</button>
+      <button id="btnSaveGroup" class="btn btn-accent">บันทึก</button>
     </div>
   </div>
 </div>
@@ -554,6 +685,7 @@ function stripBOM(s){ return s.replace(/^﻿/, ''); }
 function parseProductsText(text){
   var lines = stripBOM(text).split(/\r?\n/);
   var barcodes = [];
+  var items = [];
   var cur = null;
   for(var i=0;i<lines.length;i++){
     var line = lines[i];
@@ -561,17 +693,20 @@ function parseProductsText(text){
     var f = line.split('\t');
     var typ = stripBOM(f[0] || '').trim();
     if(typ === 'I'){
+      var stock = parseFloat(f[4]);
       cur = { code: (f[1]||'').trim(), name: (f[3]||'').trim() };
+      items.push([cur.code, cur.name, isNaN(stock) ? null : Math.round(stock*10000)/10000]);
     } else if(typ === 'B' && cur){
       var unit = (f[8]||'').trim();
       var barcode = (f[9]||'').trim();
       var price = parseFloat(f[10]);
+      var factor = (f[11]||'').trim() || '1.0000';
       if(isNaN(price)) price = 0;
       price = Math.round(price*100)/100;
-      if(barcode){ barcodes.push([barcode, cur.code, cur.name, unit, price]); }
+      if(barcode){ barcodes.push([barcode, cur.code, cur.name, unit, price, factor]); }
     }
   }
-  return barcodes;
+  return { barcodes: barcodes, items: items };
 }
 
 function parseCodeNameFile(text){
@@ -590,19 +725,30 @@ function parseCodeNameFile(text){
 
 function buildIndexes(data){
   var barcodeMap = new Map();
-  var itemSearchRows = []; // [itemCode, name, firstBarcode] one per item, for name search
-  var seenItem = new Set();
+  var items = new Map();      // itemCode -> {code,name,stock,unit,price,barcode,brows:[[unit,barcode,price,factor]]}
+  var itemSearchRows = [];    // [itemCode, name, firstBarcode] one per item, for name search
+  (data.items || []).forEach(function(r){
+    items.set(r[0], { code: r[0], name: r[1], stock: r[2], unit: '', price: 0, barcode: r[0], brows: [] });
+  });
   var rows = data.barcodes || [];
   for(var i=0;i<rows.length;i++){
     var r = rows[i];
     barcodeMap.set(r[0], r);
-    if(!seenItem.has(r[1])){
-      seenItem.add(r[1]);
+    var it = items.get(r[1]);
+    if(!it){
+      it = { code: r[1], name: r[2], stock: null, unit: '', price: 0, barcode: r[0], brows: [] };
+      items.set(r[1], it);
+    }
+    if(!it.brows.length){
+      it.unit = r[3]; it.price = r[4]; it.barcode = r[0];
       itemSearchRows.push([r[1], r[2], r[0]]);
     }
+    it.brows.push([r[3], r[0], r[4], r[5] || '1.0000']);
   }
   return {
     barcodeMap: barcodeMap,
+    items: items,
+    hasStock: (data.items || []).length > 0,
     itemSearchRows: itemSearchRows,
     vendors: data.vendors || [],
     customers: data.customers || [],
@@ -812,6 +958,7 @@ function exportFilename(prefix){
 var subtitles = {
   receiving: 'รับสินค้าเข้า — สแกนบาร์โค้ดแทนเครื่องสแกน',
   sales: 'บันทึกการขายไว้ก่อน คีย์เข้าระบบทีหลัง',
+  stock: 'นับสต็อกทีละกลุ่ม หมุนเวียนจนครบร้าน',
   data: 'ฐานข้อมูลสินค้า ผู้จำหน่าย และลูกค้าในเครื่อง'
 };
 function setView(name){
@@ -1610,6 +1757,582 @@ document.getElementById('btnClearSales').addEventListener('click', function(){
 });
 
 /* ---------------------------------------------------------------------
+   STOCK COUNT
+   groups.list: [{id, name, codes:[itemCode], createdAt}] — shelf groups
+   built by scanning. Auto groups are derived from the first word of the
+   product name (the master has no category field) and never stored.
+   counts.active: the session in progress; counts.sessions: finished ones,
+   newest first. A session snapshots system stock at start so re-importing
+   the master later does not rewrite old variance reports.
+--------------------------------------------------------------------- */
+var LS_GROUPS = 'srs_groups_v1';
+var LS_COUNTS = 'srs_counts_v1';
+var groups = loadJSON(LS_GROUPS, { list: [] });
+var counts = loadJSON(LS_COUNTS, { sessions: [], active: null });
+function saveGroups(){ saveJSON(LS_GROUPS, groups); }
+function saveCounts(){ saveJSON(LS_COUNTS, counts); }
+var AUTO_MIN = 3;
+var stkMode = 'count';           // 'count' | 'edit'
+var stkEditGroupId = null;
+
+function firstWord(name){
+  var w = String(name || '').trim().split(/\s+/)[0] || '';
+  return w.replace(/^[\(\[\-"']+|[\)\]\-"',.]+$/g, '');
+}
+function assignedCodeSet(){
+  var s = new Set();
+  groups.list.forEach(function(g){ g.codes.forEach(function(c){ s.add(c); }); });
+  return s;
+}
+function computeAutoGroups(){
+  var assigned = assignedCodeSet();
+  var map = {};
+  master.items.forEach(function(it){
+    if(assigned.has(it.code)) return;
+    var w = firstWord(it.name) || '(ไม่มีชื่อ)';
+    (map[w] = map[w] || []).push(it.code);
+  });
+  var list = [], rest = [];
+  Object.keys(map).forEach(function(w){
+    if(map[w].length >= AUTO_MIN) list.push({ id: 'auto:' + w, name: w, codes: map[w], auto: true });
+    else rest = rest.concat(map[w]);
+  });
+  list.sort(function(a, b){ return a.name.localeCompare(b.name, 'th'); });
+  if(rest.length) list.push({ id: 'auto:__rest', name: 'อื่นๆ (ยี่ห้อละไม่ถึง ' + AUTO_MIN + ' รายการ)', codes: rest, auto: true, rest: true });
+  return list;
+}
+function findGroup(id){
+  if(id && id.indexOf('auto:') === 0) return computeAutoGroups().find(function(g){ return g.id === id; }) || null;
+  return groups.list.find(function(g){ return g.id === id; }) || null;
+}
+function lastCountedMap(){
+  var m = {};
+  counts.sessions.forEach(function(s){
+    if(s.finishedAt && (!m[s.groupId] || s.finishedAt > m[s.groupId])) m[s.groupId] = s.finishedAt;
+  });
+  return m;
+}
+function daysAgo(ts){ return Math.floor((Date.now() - ts) / 86400000); }
+function fmtAgo(ts){
+  var d = daysAgo(ts);
+  return d === 0 ? 'วันนี้' : d === 1 ? 'เมื่อวาน' : d + ' วันก่อน';
+}
+function itemInfo(code, snap){
+  var it = master.items.get(code);
+  if(it) return { name: it.name, unit: it.unit, stock: it.stock, price: it.price, barcode: it.barcode, missing: false };
+  var s = snap && snap[code];
+  return { name: s ? s.name : '(ไม่พบในฐานข้อมูล)', unit: s ? s.unit : '', stock: s ? s.stock : null, price: s ? s.price : 0, barcode: s ? s.barcode : code, missing: true };
+}
+
+/* ---- group list ---- */
+function groupCardHtml(g, last, active){
+  var cnt = g.codes.length;
+  var lastTxt = last ? 'นับล่าสุด ' + fmtAgo(last) : 'ยังไม่เคยนับ';
+  var due = !last || daysAgo(last) >= 30;
+  var actions = active
+    ? '<button class="btn btn-accent" data-resume="' + g.id + '">▶ นับต่อ</button>'
+    : '<button class="btn btn-accent" data-count="' + g.id + '">นับ</button>';
+  if(!g.auto) actions += '<button class="btn" data-edit="' + g.id + '">แก้ไข</button>';
+  return '<div class="hc-top"><div class="hc-vendor">' + escapeHtml(g.name) + '</div>' + (active ? '<span class="badge badge-open">กำลังนับ</span>' : '') + '</div>' +
+    '<div class="gc-meta"><span>' + cnt + ' รายการ</span><span class="' + (due ? 'gc-due' : '') + '">' + lastTxt + '</span></div>' +
+    '<div class="hc-actions">' + actions + '</div>';
+}
+function renderStock(){
+  document.getElementById('stk-nostock-banner').hidden = master.hasStock || !master.items.size;
+  var active = counts.active;
+  var ab = document.getElementById('stk-active-banner');
+  if(active){
+    ab.hidden = false;
+    var done = Object.keys(active.counts).length;
+    ab.innerHTML = '<span>กำลังนับ <b>' + escapeHtml(active.groupName) + '</b> — ' + done + '/' + active.codes.length + ' รายการ</span><button class="btn btn-accent" id="btnResumeActive">▶ นับต่อ</button>';
+    document.getElementById('btnResumeActive').addEventListener('click', openCountPanel);
+  } else ab.hidden = true;
+
+  var q = document.getElementById('groupSearch').value.trim().toLowerCase();
+  var last = lastCountedMap();
+  var userWrap = document.getElementById('stk-user-groups');
+  userWrap.innerHTML = '';
+  var userSorted = groups.list.slice().sort(function(a, b){ return (last[a.id] || 0) - (last[b.id] || 0); });
+  var shown = 0;
+  userSorted.forEach(function(g){
+    if(q && g.name.toLowerCase().indexOf(q) === -1) return;
+    shown++;
+    var card = document.createElement('div');
+    card.className = 'card header-card group-card';
+    card.innerHTML = groupCardHtml(g, last[g.id], active && active.groupId === g.id);
+    userWrap.appendChild(card);
+  });
+  if(!shown) userWrap.innerHTML = '<div class="empty-state">' + (groups.list.length ? 'ไม่พบกลุ่มที่ค้นหา' : 'ยังไม่มีกลุ่มของร้าน — กด "+ กลุ่มใหม่" ตั้งชื่อชั้นวาง แล้วสแกนสินค้าบนชั้นนั้นเพิ่มเข้ากลุ่ม') + '</div>';
+
+  var hint = document.getElementById('stk-next-hint');
+  var next = userSorted[0];
+  if(next){
+    hint.innerHTML = 'กลุ่มที่ควรนับถัดไป: <b>' + escapeHtml(next.name) + '</b> (' + (last[next.id] ? 'นับล่าสุด ' + fmtAgo(last[next.id]) : 'ยังไม่เคยนับ') + ') · สินค้าที่ยังไม่อยู่ในกลุ่มของร้าน ' + (master.items.size - assignedCodeSet().size).toLocaleString('th-TH') + ' รายการ';
+  } else hint.textContent = '';
+
+  var autoWrap = document.getElementById('stk-auto-groups');
+  autoWrap.innerHTML = '';
+  var autos = computeAutoGroups();
+  var ashown = 0;
+  autos.forEach(function(g){
+    if(q && g.name.toLowerCase().indexOf(q) === -1) return;
+    ashown++;
+    var card = document.createElement('div');
+    card.className = 'card header-card group-card';
+    card.innerHTML = groupCardHtml(g, last[g.id], active && active.groupId === g.id);
+    autoWrap.appendChild(card);
+  });
+  if(!ashown) autoWrap.innerHTML = '<div class="empty-state">' + (master.items.size ? 'ไม่พบกลุ่มที่ค้นหา' : 'ยังไม่มีฐานข้อมูลสินค้า') + '</div>';
+
+  [userWrap, autoWrap].forEach(function(wrap){
+    wrap.querySelectorAll('[data-count]').forEach(function(b){ b.addEventListener('click', function(){ startSession(b.getAttribute('data-count')); }); });
+    wrap.querySelectorAll('[data-resume]').forEach(function(b){ b.addEventListener('click', openCountPanel); });
+    wrap.querySelectorAll('[data-edit]').forEach(function(b){ b.addEventListener('click', function(){ openEditPanel(b.getAttribute('data-edit')); }); });
+  });
+  renderHistory();
+}
+document.getElementById('groupSearch').addEventListener('input', renderStock);
+
+/* ---- group create / rename ---- */
+var groupFormOverlay = document.getElementById('groupFormOverlay');
+var groupFormTarget = null;
+document.getElementById('btnNewGroup').addEventListener('click', function(){
+  groupFormTarget = null;
+  document.getElementById('groupFormTitle').textContent = 'กลุ่มใหม่';
+  document.getElementById('groupNameInput').value = '';
+  groupFormOverlay.hidden = false;
+  document.getElementById('groupNameInput').focus();
+});
+document.getElementById('btnCancelGroup').addEventListener('click', function(){ groupFormOverlay.hidden = true; });
+document.getElementById('groupNameInput').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('btnSaveGroup').click(); } });
+document.getElementById('btnSaveGroup').addEventListener('click', function(){
+  var name = document.getElementById('groupNameInput').value.trim();
+  if(!name){ toast('กรุณาตั้งชื่อกลุ่ม'); return; }
+  if(groupFormTarget){
+    groupFormTarget.name = name;
+    saveGroups(); groupFormOverlay.hidden = true;
+    if(counts.active && counts.active.groupId === groupFormTarget.id){ counts.active.groupName = name; saveCounts(); }
+    document.getElementById('stk-title').textContent = name;
+    renderStock();
+    return;
+  }
+  var g = { id: uid(), name: name, codes: [], createdAt: Date.now() };
+  groups.list.push(g);
+  saveGroups(); groupFormOverlay.hidden = true;
+  renderStock();
+  openEditPanel(g.id);
+  toast('สร้างกลุ่มแล้ว — สแกนสินค้าบนชั้นนี้เพื่อเพิ่มเข้ากลุ่ม');
+});
+
+function addCodeToGroup(g, code){
+  groups.list.forEach(function(o){
+    if(o.id !== g.id){
+      var i = o.codes.indexOf(code);
+      if(i !== -1){ o.codes.splice(i, 1); toast('ย้ายออกจากกลุ่ม "' + o.name + '" แล้ว'); }
+    }
+  });
+  if(g.codes.indexOf(code) === -1) g.codes.push(code);
+  saveGroups();
+}
+
+/* ---- sessions ---- */
+function startSession(groupId){
+  var g = findGroup(groupId);
+  if(!g) return;
+  var begin = function(){
+    var snap = {};
+    g.codes.forEach(function(c){ snap[c] = itemInfo(c, null); });
+    counts.active = { id: uid(), groupId: g.id, groupName: g.name, auto: !!g.auto, startedAt: Date.now(), finishedAt: null, codes: g.codes.slice(), snapshot: snap, counts: {} };
+    saveCounts();
+    openCountPanel();
+  };
+  if(counts.active && counts.active.groupId !== g.id){
+    showConfirm('มีการนับกลุ่ม "' + counts.active.groupName + '" ค้างอยู่ (' + Object.keys(counts.active.counts).length + ' รายการ) — ทิ้งรอบนั้นแล้วเริ่มนับ "' + g.name + '" ใช่ไหม?', begin);
+  } else if(counts.active && counts.active.groupId === g.id){
+    openCountPanel();
+  } else begin();
+}
+function openCountPanel(){
+  stkMode = 'count';
+  showStkPanel('count');
+  var a = counts.active;
+  if(!a){ renderStock(); return; }
+  document.getElementById('stk-title').textContent = a.groupName;
+  document.getElementById('stk-meta').textContent = 'เริ่ม ' + fmtDateTime(a.startedAt).date + ' ' + fmtDateTime(a.startedAt).time + (a.auto ? ' · กลุ่มแนะนำ' : '');
+  document.getElementById('stkShowSysRow').hidden = false;
+  document.getElementById('stk-count-actions').hidden = false;
+  document.getElementById('btnStkDeleteGroup').hidden = true;
+  document.getElementById('stkRowFilter').value = '';
+  renderStkRows();
+}
+function openEditPanel(groupId){
+  var g = findGroup(groupId);
+  if(!g || g.auto) return;
+  stkMode = 'edit';
+  stkEditGroupId = g.id;
+  showStkPanel('count');
+  document.getElementById('stk-title').textContent = g.name;
+  document.getElementById('stk-meta').innerHTML = 'จัดสินค้าในกลุ่ม · <a href="#" id="lnkRenameGroup">เปลี่ยนชื่อ</a>';
+  document.getElementById('lnkRenameGroup').addEventListener('click', function(e){
+    e.preventDefault();
+    groupFormTarget = g;
+    document.getElementById('groupFormTitle').textContent = 'เปลี่ยนชื่อกลุ่ม';
+    document.getElementById('groupNameInput').value = g.name;
+    groupFormOverlay.hidden = false;
+  });
+  document.getElementById('stkShowSysRow').hidden = true;
+  document.getElementById('stk-count-actions').hidden = true;
+  document.getElementById('btnStkDeleteGroup').hidden = false;
+  document.getElementById('stkRowFilter').value = '';
+  renderStkRows();
+}
+function showStkPanel(which){
+  document.getElementById('stk-groups-panel').hidden = which !== 'groups';
+  document.getElementById('stk-count-panel').hidden = which !== 'count';
+  document.getElementById('stk-result-panel').hidden = which !== 'result';
+  document.getElementById('stkConfirmPanel').hidden = true;
+  window.scrollTo(0, 0);
+}
+document.getElementById('btnStkBack').addEventListener('click', function(){ showStkPanel('groups'); renderStock(); });
+document.getElementById('btnStkResultBack').addEventListener('click', function(){ showStkPanel('groups'); renderStock(); });
+document.getElementById('stkShowSys').addEventListener('change', renderStkRows);
+document.getElementById('stkRowFilter').addEventListener('input', renderStkRows);
+
+function stkCurrentCodes(){
+  if(stkMode === 'edit'){ var g = findGroup(stkEditGroupId); return g ? g.codes : []; }
+  return counts.active ? counts.active.codes : [];
+}
+function renderStkRows(){
+  var body = document.getElementById('stk-rows');
+  body.innerHTML = '';
+  var codes = stkCurrentCodes();
+  var a = counts.active;
+  var edit = stkMode === 'edit';
+  var showSys = edit ? false : document.getElementById('stkShowSys').checked;
+  document.querySelectorAll('.stk-sys-col').forEach(function(th){ th.hidden = !showSys; });
+  var q = document.getElementById('stkRowFilter').value.trim().toLowerCase();
+  document.getElementById('stk-empty').hidden = !!codes.length;
+  var canRemove = edit || (a && !a.auto);
+  var done = 0;
+  codes.forEach(function(code, idx){
+    var info = itemInfo(code, a && a.snapshot);
+    var counted = (!edit && a) ? a.counts[code] : undefined;
+    if(counted != null) done++;
+    if(q && info.name.toLowerCase().indexOf(q) === -1 && info.barcode.toLowerCase().indexOf(q) === -1) return;
+    var tr = document.createElement('tr');
+    if(counted != null) tr.className = 'counted';
+    tr.innerHTML =
+      '<td>' + (idx + 1) + '</td>' +
+      '<td><div class="item-name' + (info.missing ? ' unmatched' : '') + '">' + escapeHtml(info.name) + '</div><div class="item-unit mono">' + escapeHtml(info.barcode) + (info.unit ? ' · ' + escapeHtml(info.unit) : '') + '</div></td>' +
+      '<td class="num mono stk-sys-col"' + (showSys ? '' : ' hidden') + '>' + (info.stock == null ? '—' : info.stock) + '</td>' +
+      (edit ? '<td></td>' : '<td class="num"><input type="number" min="0" step="any" inputmode="decimal" class="mono" data-code="' + escapeHtml(code) + '" value="' + (counted != null ? counted : '') + '" placeholder="—" style="width:64px;"></td>') +
+      '<td>' + (canRemove ? '<button class="row-del" title="เอาออกจากกลุ่ม" aria-label="เอาออกจากกลุ่ม">✕</button>' : '') + '</td>';
+    var inp = tr.querySelector('input[data-code]');
+    if(inp){
+      inp.addEventListener('input', function(){
+        var v = inp.value.trim();
+        if(v === ''){ delete a.counts[code]; tr.classList.remove('counted'); }
+        else { a.counts[code] = parseFloat(v) || 0; tr.classList.add('counted'); }
+        saveCounts(); refreshStkProgress();
+      });
+      inp.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); var nx = inp.closest('tr').nextElementSibling; var ni = nx && nx.querySelector('input'); if(ni){ ni.focus(); ni.select(); } }
+      });
+    }
+    var del = tr.querySelector('.row-del');
+    if(del) del.addEventListener('click', function(){
+      showConfirm('เอา "' + info.name + '" ออกจากกลุ่มนี้?', function(){
+        var g = findGroup(edit ? stkEditGroupId : a.groupId);
+        if(g && !g.auto){ var i = g.codes.indexOf(code); if(i !== -1) g.codes.splice(i, 1); saveGroups(); }
+        if(a && !edit){ var j = a.codes.indexOf(code); if(j !== -1) a.codes.splice(j, 1); delete a.counts[code]; saveCounts(); }
+        renderStkRows();
+      });
+    });
+    body.appendChild(tr);
+  });
+  refreshStkProgress();
+}
+function refreshStkProgress(){
+  var el = document.getElementById('stk-progress');
+  if(stkMode === 'edit'){ el.innerHTML = '<span>สินค้าในกลุ่ม</span><span class="mono">' + stkCurrentCodes().length + ' รายการ</span>'; return; }
+  var a = counts.active;
+  if(!a){ el.innerHTML = ''; return; }
+  var done = Object.keys(a.counts).length;
+  el.innerHTML = '<span>นับแล้ว</span><span class="mono">' + done + ' / ' + a.codes.length + ' รายการ</span>';
+}
+
+/* ---- adding / counting an item ---- */
+function stkHandleCode(rawCode){
+  var row = lookupBarcode(rawCode);
+  var code = row ? row[1] : null;
+  var panel = document.getElementById('stkConfirmPanel');
+  if(!code){
+    panel.hidden = false; panel.className = 'confirm-panel unmatched';
+    panel.innerHTML = '<div class="cp-warn">❓ ไม่พบบาร์โค้ด ' + escapeHtml(rawCode) + ' ในฐานข้อมูล — นับสต็อกได้เฉพาะสินค้าที่มีในระบบ</div><div class="btn-row"><button class="btn" data-role="cpCancel">ปิด</button></div>';
+    panel.querySelector('[data-role="cpCancel"]').addEventListener('click', function(){ panel.hidden = true; });
+    return;
+  }
+  var edit = stkMode === 'edit';
+  var a = counts.active;
+  var g = findGroup(edit ? stkEditGroupId : (a && a.groupId));
+  var codes = stkCurrentCodes();
+  var member = codes.indexOf(code) !== -1;
+  var info = itemInfo(code, a && a.snapshot);
+
+  if(edit){
+    if(member){ toast('มีในกลุ่มนี้อยู่แล้ว: ' + info.name); highlightStkRow(code); return; }
+    addCodeToGroup(g, code);
+    renderStkRows(); highlightStkRow(code);
+    toast('เพิ่ม "' + info.name + '" เข้ากลุ่มแล้ว');
+    return;
+  }
+  var already = a.counts[code];
+  panel.hidden = false;
+  panel.className = 'confirm-panel' + (member ? '' : ' unmatched');
+  panel.innerHTML =
+    '<div class="cp-title">' + escapeHtml(info.name) + '</div>' +
+    '<div class="hint-text mono">' + escapeHtml(info.barcode) + (info.unit ? ' · หน่วย ' + escapeHtml(info.unit) : '') + (already != null ? ' · นับไปแล้ว ' + already : '') + '</div>' +
+    (member ? '' : '<div class="cp-warn">สินค้านี้ยังไม่อยู่ในกลุ่ม "' + escapeHtml(a.groupName) + '"' + (a.auto ? ' — จะนับรวมในรอบนี้ (ไม่ย้ายกลุ่ม)' : ' — จะเพิ่มเข้ากลุ่มนี้ให้ด้วย') + '</div>') +
+    '<div class="cp-grid">' +
+      '<label>จำนวนที่นับ <input data-role="cpQty" type="number" min="0" step="any" value="1" inputmode="decimal"></label>' +
+      '<label>1 หน่วยที่นับ = กี่' + escapeHtml(info.unit || 'ชิ้น') + ' <input data-role="cpMultiplier" type="number" min="0.0001" step="any" value="1" inputmode="decimal"></label>' +
+    '</div>' +
+    '<div class="btn-row"><button class="btn" data-role="cpCancel">ยกเลิก</button>' +
+      (already != null ? '<button class="btn" data-role="cpSet">ตั้งเป็นค่านี้</button>' : '') +
+      '<button class="btn btn-accent" data-role="cpAdd">' + (already != null ? '+ บวกเพิ่ม' : 'บันทึก') + '</button></div>';
+  var qtyIn = panel.querySelector('[data-role="cpQty"]');
+  var multIn = panel.querySelector('[data-role="cpMultiplier"]');
+  function ensureMember(){
+    if(member) return;
+    a.codes.push(code); a.snapshot[code] = info;
+    if(!a.auto && g) addCodeToGroup(g, code);
+    member = true;
+  }
+  function commit(replace){
+    var q = (parseFloat(qtyIn.value) || 0) * (parseFloat(multIn.value) || 1);
+    q = Math.round(q * 10000) / 10000;
+    ensureMember();
+    a.counts[code] = replace || already == null ? q : Math.round((already + q) * 10000) / 10000;
+    saveCounts(); panel.hidden = true;
+    renderStkRows(); highlightStkRow(code);
+    toast(info.name + ' → นับได้ ' + a.counts[code] + (info.unit ? ' ' + info.unit : ''));
+  }
+  panel.querySelector('[data-role="cpCancel"]').addEventListener('click', function(){ panel.hidden = true; });
+  panel.querySelector('[data-role="cpAdd"]').addEventListener('click', function(){ commit(false); });
+  var setBtn = panel.querySelector('[data-role="cpSet"]');
+  if(setBtn) setBtn.addEventListener('click', function(){ commit(true); });
+  [qtyIn, multIn].forEach(function(i){ i.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); commit(false); } }); });
+  panel.scrollIntoView({ block: 'nearest' });
+  qtyIn.focus(); qtyIn.select();
+}
+function highlightStkRow(code){
+  var inp = document.querySelector('#stk-rows input[data-code="' + CSS.escape(code) + '"]');
+  var tr = inp ? inp.closest('tr') : null;
+  if(!tr){
+    var rows = document.querySelectorAll('#stk-rows tr');
+    for(var i = 0; i < rows.length; i++){ if(rows[i].textContent.indexOf(code) !== -1){ tr = rows[i]; break; } }
+  }
+  if(tr) tr.scrollIntoView({ block: 'center' });
+}
+document.getElementById('btnOpenScannerStk').addEventListener('click', function(){ openScanner(stkHandleCode); });
+function manualStk(){
+  var input = document.getElementById('manualBarcodeInputStk');
+  var code = input.value.trim();
+  if(!code) return;
+  input.value = '';
+  stkHandleCode(code);
+}
+document.getElementById('btnManualAddStk').addEventListener('click', manualStk);
+document.getElementById('manualBarcodeInputStk').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); manualStk(); } });
+wireAutocomplete(document.getElementById('productNameSearchStk'), document.getElementById('productNameResultsStk'), function(){ return master.itemSearchRows; }, function(row){
+  document.getElementById('productNameSearchStk').value = '';
+  stkHandleCode(row[2]);
+});
+document.getElementById('btnStkDeleteGroup').addEventListener('click', function(){
+  var g = findGroup(stkEditGroupId);
+  if(!g) return;
+  showConfirm('ลบกลุ่ม "' + g.name + '"? (สินค้าจะกลับไปอยู่ในกลุ่มแนะนำอัตโนมัติ ประวัติการนับยังอยู่)', function(){
+    groups.list = groups.list.filter(function(o){ return o.id !== g.id; });
+    saveGroups();
+    if(counts.active && counts.active.groupId === g.id){ counts.active = null; saveCounts(); }
+    showStkPanel('groups'); renderStock();
+  });
+});
+
+/* ---- finishing ---- */
+document.getElementById('btnStkZeroRest').addEventListener('click', function(){
+  var a = counts.active; if(!a) return;
+  var rest = a.codes.filter(function(c){ return a.counts[c] == null; });
+  if(!rest.length){ toast('นับครบทุกรายการแล้ว'); return; }
+  showConfirm('ตั้ง ' + rest.length + ' รายการที่ยังไม่ได้นับให้เป็น 0 (ไม่มีของบนชั้น)?', function(){
+    rest.forEach(function(c){ a.counts[c] = 0; });
+    saveCounts(); renderStkRows();
+  });
+});
+document.getElementById('btnStkFinish').addEventListener('click', function(){
+  var a = counts.active; if(!a) return;
+  var done = Object.keys(a.counts).length;
+  if(!done){ toast('ยังไม่ได้นับรายการใดเลย'); return; }
+  var rest = a.codes.length - done;
+  var finish = function(){
+    a.finishedAt = Date.now();
+    counts.sessions.unshift(a);
+    counts.active = null;
+    saveCounts();
+    openResultPanel(a.id);
+  };
+  if(rest > 0) showConfirm('ยังไม่ได้นับ ' + rest + ' รายการ — รายการเหล่านี้จะไม่รวมในรายงานและไฟล์ปรับสต็อก (ไม่ถือเป็น 0) ยืนยันเสร็จสิ้น?', finish);
+  else finish();
+});
+
+/* ---- results ---- */
+function sessionRows(s){
+  return s.codes.map(function(c){
+    var info = itemInfo(c, s.snapshot);
+    var snap = s.snapshot[c] || info;
+    var sys = snap.stock;
+    var counted = s.counts[c];
+    var diff = (counted != null && sys != null) ? Math.round((counted - sys) * 10000) / 10000 : null;
+    return { code: c, name: snap.name || info.name, unit: snap.unit || info.unit, barcode: snap.barcode || info.barcode, price: snap.price != null ? snap.price : info.price, sys: sys, counted: counted, diff: diff, value: diff != null ? round2(diff * (snap.price || 0)) : null };
+  });
+}
+var stkResultId = null;
+function openResultPanel(sessionId){
+  var s = counts.sessions.find(function(x){ return x.id === sessionId; });
+  if(!s) return;
+  stkResultId = sessionId;
+  showStkPanel('result');
+  var dt = fmtDateTime(s.finishedAt || s.startedAt);
+  document.getElementById('stk-result-title').textContent = s.groupName;
+  document.getElementById('stk-result-meta').textContent = 'นับเมื่อ ' + dt.date + ' ' + dt.time;
+  renderResultRows();
+}
+document.getElementById('stkOnlyDiff').addEventListener('change', renderResultRows);
+function renderResultRows(){
+  var s = counts.sessions.find(function(x){ return x.id === stkResultId; });
+  if(!s) return;
+  var rows = sessionRows(s);
+  var ok = 0, short = 0, over = 0, uncounted = 0, nosys = 0, value = 0;
+  rows.forEach(function(r){
+    if(r.counted == null) uncounted++;
+    else if(r.sys == null) nosys++;
+    else if(r.diff === 0) ok++;
+    else if(r.diff < 0){ short++; value += r.value; }
+    else { over++; value += r.value; }
+  });
+  document.getElementById('stk-result-tiles').innerHTML =
+    '<div class="stat-tile"><div class="num mono var-ok">' + ok + '</div><div class="lbl">ตรง</div></div>' +
+    '<div class="stat-tile"><div class="num mono var-short">' + short + '</div><div class="lbl">ขาด</div></div>' +
+    '<div class="stat-tile"><div class="num mono var-over">' + over + '</div><div class="lbl">เกิน</div></div>' +
+    '<div class="stat-tile" style="grid-column:span 3;"><div class="num mono ' + (value < 0 ? 'var-short' : value > 0 ? 'var-over' : '') + '">฿' + fmtMoney(value) + '</div><div class="lbl">มูลค่าผลต่างสุทธิ (ราคาขาย)' + (uncounted ? ' · ไม่ได้นับ ' + uncounted : '') + (nosys ? ' · ไม่มียอดระบบ ' + nosys : '') + '</div></div>';
+  var only = document.getElementById('stkOnlyDiff').checked;
+  var body = document.getElementById('stk-result-rows');
+  body.innerHTML = '';
+  rows.forEach(function(r){
+    if(only && (r.diff === 0 || r.counted == null)) return;
+    var cls = r.diff == null ? '' : r.diff < 0 ? 'var-short' : r.diff > 0 ? 'var-over' : 'var-ok';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><div class="item-name">' + escapeHtml(r.name) + '</div><div class="item-unit mono">' + escapeHtml(r.barcode) + (r.unit ? ' · ' + escapeHtml(r.unit) : '') + '</div></td>' +
+      '<td class="num mono">' + (r.sys == null ? '—' : r.sys) + '</td>' +
+      '<td class="num mono">' + (r.counted == null ? '<span style="color:var(--text-dim)">ไม่ได้นับ</span>' : r.counted) + '</td>' +
+      '<td class="num mono ' + cls + '">' + (r.diff == null ? '—' : (r.diff > 0 ? '+' : '') + r.diff) + '</td>' +
+      '<td class="num mono ' + cls + '">' + (r.value == null ? '—' : fmtMoney(r.value)) + '</td>';
+    body.appendChild(tr);
+  });
+  if(!body.children.length) body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:16px;">' + (only ? 'ทุกรายการที่นับตรงกับระบบ' : 'ไม่มีรายการ') + '</td></tr>';
+}
+function fmt4(n){ return (Math.round((n || 0) * 10000) / 10000).toFixed(4); }
+function buildVarianceReport(s){
+  var dt = fmtDateTime(s.finishedAt || s.startedAt);
+  var lines = ['รายงานนับสต็อก\tกลุ่ม: ' + s.groupName + '\tวันที่ ' + dt.date + ' ' + dt.time,
+    ['รหัสสินค้า', 'บาร์โค้ด', 'ชื่อสินค้า', 'หน่วย', 'ยอดระบบ', 'นับได้', 'ผลต่าง', 'ราคาขาย', 'มูลค่าผลต่าง'].join('\t')];
+  sessionRows(s).forEach(function(r){
+    lines.push([r.code, r.barcode, r.name, r.unit, r.sys == null ? '' : r.sys, r.counted == null ? 'ไม่ได้นับ' : r.counted, r.diff == null ? '' : r.diff, r.price, r.value == null ? '' : r.value].join('\t'));
+  });
+  return lines.join('\r\n');
+}
+/* Byte-compatible with the ProMaxx stock-count import (นับสต็อค24122567.TXT):
+   the product-master layout with the counted quantity in I-row field 5,
+   zero written as "0", other numbers with 4 decimals, BOM, CRLF, no
+   trailing newline. Only counted items are written. */
+function buildAdjustFile(s){
+  var lines = [];
+  s.codes.forEach(function(c){
+    var q = s.counts[c];
+    if(q == null) return;
+    var it = master.items.get(c);
+    var snap = s.snapshot[c] || {};
+    var name = it ? it.name : (snap.name || '');
+    var price = it ? it.price : (snap.price || 0);
+    var row = new Array(17).fill('');
+    row[0] = 'I'; row[1] = c; row[3] = name; row[4] = q === 0 ? '0' : fmt4(q); row[5] = fmt4(price); row[6] = 'MAIN'; row[7] = 'Main Warehouse';
+    lines.push(row.join('\t'));
+    var brows = it && it.brows.length ? it.brows : [[snap.unit || '', snap.barcode || c, price, '1.0000']];
+    brows.forEach(function(b){
+      var r = new Array(17).fill('');
+      r[0] = 'B'; r[8] = b[0]; r[9] = b[1]; r[10] = fmt4(b[2]); r[11] = b[3];
+      lines.push(r.join('\t'));
+    });
+  });
+  return '﻿' + lines.join('\r\n');
+}
+function currentResultSession(){ return counts.sessions.find(function(x){ return x.id === stkResultId; }); }
+function stkFileStamp(s){ var d = new Date(s.finishedAt || s.startedAt); return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0'); }
+document.getElementById('btnStkCopyReport').addEventListener('click', function(){ var s = currentResultSession(); if(s) copyText(buildVarianceReport(s), 'คัดลอกรายงานผลต่างแล้ว', 'รายงานผลต่าง'); });
+document.getElementById('btnStkViewReport').addEventListener('click', function(){ var s = currentResultSession(); if(s) showTextSheet('รายงานผลต่าง — ' + s.groupName, buildVarianceReport(s)); });
+document.getElementById('btnStkSaveReport').addEventListener('click', function(){ var s = currentResultSession(); if(s) saveFile('stock_report_' + stkFileStamp(s) + '.txt', buildVarianceReport(s)); });
+document.getElementById('btnStkCopyAdjust').addEventListener('click', function(){ var s = currentResultSession(); if(s) copyText(buildAdjustFile(s), 'คัดลอกไฟล์ปรับสต็อกแล้ว', 'ไฟล์ปรับสต็อก'); });
+document.getElementById('btnStkViewAdjust').addEventListener('click', function(){ var s = currentResultSession(); if(s) showTextSheet('ไฟล์ปรับสต็อก — ' + s.groupName, buildAdjustFile(s)); });
+document.getElementById('btnStkSaveAdjust').addEventListener('click', function(){ var s = currentResultSession(); if(s) saveFile('นับสต็อค' + toBuddhistDDMMYYYY(new Date(s.finishedAt || s.startedAt).toISOString().slice(0, 10)) + '.TXT', buildAdjustFile(s)); });
+document.getElementById('btnStkDeleteSession').addEventListener('click', function(){
+  var s = currentResultSession(); if(!s) return;
+  showConfirm('ลบผลนับ "' + s.groupName + '" รอบนี้?', function(){
+    counts.sessions = counts.sessions.filter(function(x){ return x.id !== s.id; });
+    saveCounts(); showStkPanel('groups'); renderStock();
+  });
+});
+
+/* ---- history + frequently-short ---- */
+function renderHistory(){
+  var wrap = document.getElementById('stk-history');
+  wrap.innerHTML = '';
+  if(!counts.sessions.length){ wrap.innerHTML = '<div class="empty-state">ยังไม่มีประวัติการนับ</div>'; }
+  counts.sessions.slice(0, 30).forEach(function(s){
+    var rows = sessionRows(s);
+    var short = rows.filter(function(r){ return r.diff != null && r.diff < 0; }).length;
+    var over = rows.filter(function(r){ return r.diff != null && r.diff > 0; }).length;
+    var value = rows.reduce(function(t, r){ return t + (r.value || 0); }, 0);
+    var counted = rows.filter(function(r){ return r.counted != null; }).length;
+    var dt = fmtDateTime(s.finishedAt || s.startedAt);
+    var card = document.createElement('div');
+    card.className = 'card header-card record-card';
+    card.innerHTML =
+      '<div class="hc-top"><div class="hc-vendor">' + escapeHtml(s.groupName) + '</div><span class="badge badge-count mono ' + (value < 0 ? 'var-short' : '') + '">฿' + fmtMoney(value) + '</span></div>' +
+      '<div class="hc-meta"><span>' + dt.date + ' ' + dt.time + '</span><span>นับ ' + counted + '/' + s.codes.length + '</span>' +
+      (short ? '<span class="var-short">ขาด ' + short + '</span>' : '') + (over ? '<span class="var-over">เกิน ' + over + '</span>' : '') + (!short && !over ? '<span class="var-ok">ตรงทั้งหมด</span>' : '') + '</div>';
+    card.addEventListener('click', function(){ openResultPanel(s.id); });
+    wrap.appendChild(card);
+  });
+  var freq = {};
+  counts.sessions.forEach(function(s){
+    sessionRows(s).forEach(function(r){
+      if(r.diff != null && r.diff < 0){
+        var f = freq[r.code] = freq[r.code] || { name: r.name, unit: r.unit, times: 0, qty: 0, value: 0 };
+        f.times++; f.qty += -r.diff; f.value += -(r.value || 0);
+      }
+    });
+  });
+  var list = Object.keys(freq).map(function(c){ return freq[c]; }).filter(function(f){ return f.times >= 2; })
+    .sort(function(a, b){ return b.times - a.times || b.value - a.value; }).slice(0, 15);
+  var box = document.getElementById('stk-frequent');
+  if(!list.length){ box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = '<div class="hc-vendor" style="margin-bottom:6px;">สินค้าที่ขาดซ้ำ (ขาดตั้งแต่ 2 รอบขึ้นไป)</div>' +
+    list.map(function(f){ return '<div class="ri-row" style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--border);"><span>' + escapeHtml(f.name) + ' <span style="color:var(--text-dim)">· ขาด ' + f.times + ' รอบ รวม ' + f.qty + (f.unit ? ' ' + escapeHtml(f.unit) : '') + '</span></span><span class="mono var-short">฿' + fmtMoney(f.value) + '</span></div>'; }).join('');
+}
+
+/* ---------------------------------------------------------------------
    MASTER DATA VIEW
 --------------------------------------------------------------------- */
 var pendingImport = { products: null, vendors: null, customers: null };
@@ -1670,7 +2393,9 @@ document.getElementById('btnImportMaster').addEventListener('click', function(){
   // Parse and validate everything first so a wrong file never wipes good data.
   var parsed = {}, counts = [];
   if(pendingImport.products){
-    parsed.barcodes = parseProductsText(pendingImport.products);
+    var prod = parseProductsText(pendingImport.products);
+    parsed.barcodes = prod.barcodes;
+    parsed.items = prod.items;
     if(!parsed.barcodes.length){ toast('ไฟล์สินค้าไม่ถูกรูปแบบ (อ่านได้ 0 บาร์โค้ด) — ตรวจว่าเลือกไฟล์ Products...TXT'); return; }
     counts.push(parsed.barcodes.length + ' บาร์โค้ด');
   }
@@ -1686,13 +2411,14 @@ document.getElementById('btnImportMaster').addEventListener('click', function(){
     counts.push(parsed.customers.length + ' ลูกค้า');
   }
   var data = loadJSON(LS_MASTER, null) || JSON.parse(JSON.stringify(window.DEFAULT_MASTER));
-  if(parsed.barcodes) data.barcodes = parsed.barcodes;
+  if(parsed.barcodes){ data.barcodes = parsed.barcodes; data.items = parsed.items; }
   if(parsed.vendors) data.vendors = parsed.vendors;
   if(parsed.customers) data.customers = parsed.customers;
   data.updatedAt = Date.now();
   persistMasterRaw(data);
   master = buildIndexes(data);
   renderMasterStats();
+  renderStock();
   pendingImport = { products: null, vendors: null, customers: null };
   ['fileProducts','fileVendors','fileCustomers'].forEach(function(id){ document.getElementById(id).value=''; });
   ['fileProductsStatus','fileVendorsStatus','fileCustomersStatus'].forEach(function(id){ document.getElementById(id).textContent=''; });
@@ -1704,6 +2430,7 @@ document.getElementById('btnResetMaster').addEventListener('click', function(){
     try { localStorage.removeItem(LS_MASTER); } catch(e){}
     master = buildIndexes(window.DEFAULT_MASTER);
     renderMasterStats();
+    renderStock();
     toast('รีเซ็ตฐานข้อมูลแล้ว');
   });
 });
@@ -1717,6 +2444,7 @@ renderReceiving();
 renderCustomerChip();
 renderCart();
 renderSaleRecords();
+renderStock();
 if(receiving.activeId && currentActiveHeader()){
   openActiveHeader(receiving.activeId);
 } else {
